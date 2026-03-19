@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Anemia Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0a0c10;--panel:#111318;--border:#1e222c;--border2:#2a2f3d;--text:#e8eaf0;--muted:#6b7280;--accent:#4f8ef7;--accent2:#7c3aed;--green:#22c55e;--red:#ef4444}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(79,142,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,247,.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+    .container{max-width:900px;margin:0 auto;padding:0 24px 80px;position:relative;z-index:1}
+    header{text-align:center;padding:60px 0 48px;border-bottom:1px solid var(--border);margin-bottom:48px}
+    .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.25);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;padding:5px 12px;border-radius:20px;margin-bottom:20px}
+    .badge span{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+    h1{font-family:'DM Serif Display',serif;font-size:clamp(2rem,5vw,3.2rem);font-weight:400;line-height:1.1;letter-spacing:-.02em;color:#fff}
+    h1 em{font-style:italic;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .subtitle{margin-top:12px;color:var(--muted);font-size:.95rem}
+    .stats-strip{display:flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:40px}
+    .stat{flex:1;padding:18px 24px;border-right:1px solid var(--border);background:var(--panel)}
+    .stat:last-child{border-right:none}
+    .stat-val{font-family:'DM Mono',monospace;font-size:1.6rem;font-weight:500;color:#fff}
+    .stat-val.accent{color:var(--accent)}
+    .stat-label{font-size:.75rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+    .warning-banner{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);color:#fbbf24;padding:12px 18px;border-radius:8px;font-size:.85rem;margin-bottom:32px;align-items:center;gap:10px;display:{% if not models_trained %}flex{% else %}none{% endif %}}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    @media(max-width:640px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px}
+    .card-title{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:20px;display:flex;align-items:center;gap:8px}
+    .card-title::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;display:inline-block}
+    .field{margin-bottom:16px}
+    label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px;font-weight:500}
+    .label-row{display:flex;justify-content:space-between;align-items:center}
+    .unit{font-family:'DM Mono',monospace;font-size:.7rem;color:#374151}
+    input[type="number"],select{width:100%;background:#0d1017;border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:.9rem;padding:10px 14px;border-radius:8px;outline:none;transition:border-color .2s,box-shadow .2s;appearance:none}
+    input[type="number"]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.12)}
+    .gender-toggle{display:flex;gap:8px}
+    .gender-btn{flex:1;padding:10px;background:#0d1017;border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;transition:all .15s;text-align:center}
+    .gender-btn.active{background:rgba(79,142,247,.12);border-color:var(--accent);color:var(--accent)}
+    .model-tabs{display:flex;background:#0d1017;border:1px solid var(--border);border-radius:8px;padding:4px;gap:4px;margin-bottom:20px}
+    .model-tab{flex:1;padding:8px 4px;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-align:center;border-radius:6px;cursor:pointer;color:var(--muted);transition:all .15s}
+    .model-tab.active{background:var(--accent);color:#fff}
+    .btn-predict{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-size:.95rem;font-weight:600;border-radius:10px;cursor:pointer;letter-spacing:.03em;margin-top:8px;transition:opacity .2s,transform .1s}
+    .btn-predict:hover{opacity:.9}
+    .btn-predict:active{transform:scale(.98)}
+    .result-card{grid-column:1/-1;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:32px;min-height:200px;display:flex;align-items:center;justify-content:center}
+    .result-empty{text-align:center;color:var(--muted)}
+    .result-content{width:100%;animation:fadeUp .4s ease}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    .result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:16px}
+    .result-label{font-family:'DM Serif Display',serif;font-size:2rem;font-weight:400}
+    .result-label.green{color:var(--green)}
+    .result-label.red{color:var(--red)}
+    .confidence-pill{font-family:'DM Mono',monospace;font-size:.85rem;padding:6px 16px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid var(--border2)}
+    .prob-title{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+    .prob-bars{display:flex;flex-direction:column;gap:10px}
+    .prob-row{display:flex;align-items:center;gap:12px}
+    .prob-name{width:100px;font-size:.82rem;color:var(--muted);flex-shrink:0}
+    .prob-track{flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
+    .prob-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+    .prob-fill.green{background:linear-gradient(90deg,#16a34a,#22c55e)}
+    .prob-fill.red{background:linear-gradient(90deg,#b91c1c,#ef4444)}
+    .prob-val{font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text);width:45px;text-align:right}
+    .result-meta{margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap}
+    .meta-item{font-size:.82rem;color:var(--muted)}
+    .meta-item strong{color:var(--text);font-weight:500}
+    .ref-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.83rem}
+    .ref-row:last-child{border-bottom:none}
+    .ref-name{color:var(--muted)}
+    .ref-range{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--accent)}
+    .loader{width:20px;height:20px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;margin:0 auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    footer{text-align:center;color:var(--muted);font-size:.78rem;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge"><span></span> ML-POWERED DIAGNOSTIC TOOL</div>
+    <h1>Anemia <em>Classification</em><br>Using CBC Data</h1>
+    <p class="subtitle">SVM · Random Forest · Gradient Boosting &nbsp;|&nbsp; 1,421 clinical samples</p>
+  </header>
+  <div class="stats-strip">
+    <div class="stat"><div class="stat-val accent">99%</div><div class="stat-label">Model Accuracy</div></div>
+    <div class="stat"><div class="stat-val">1,421</div><div class="stat-label">Training Samples</div></div>
+    <div class="stat"><div class="stat-val accent">5-Fold</div><div class="stat-label">Cross Validation</div></div>
+    <div class="stat"><div class="stat-val">3</div><div class="stat-label">ML Models</div></div>
+  </div>
+  <div class="warning-banner">⚠️ &nbsp;Running in <strong>demo mode</strong> — run <code>python train_models.py</code> to enable trained models.</div>
+  <div class="card-title" style="margin-bottom:12px;">Select Classifier</div>
+  <div class="model-tabs">
+    <div class="model-tab active" data-model="svm">SVM</div>
+    <div class="model-tab" data-model="random_forest">Random Forest</div>
+    <div class="model-tab" data-model="gradient_boosting">Gradient Boosting</div>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">CBC Input Values</div>
+      <div class="field">
+        <label>Gender</label>
+        <div class="gender-toggle">
+          <div class="gender-btn active" data-val="0">♀ Female</div>
+          <div class="gender-btn" data-val="1">♂ Male</div>
+        </div>
+        <input type="hidden" id="gender" value="0">
+      </div>
+      <div class="field">
+        <div class="label-row"><label for="hemoglobin">Hemoglobin</label><span class="unit">g/dL</span></div>
+        <input type="number" id="hemoglobin" step="0.1" min="0" max="25" placeholder="e.g. 13.5"/>
+      </div>
+      <div class="field">
+        <div class="label-row"><label for="mch">MCH</label><span class="unit">pg</span></div>
+        <input type="number" id="mch" step="0.1" min="0" max="50" placeholder="e.g. 27.0"/>
+      </div>
+      <div class="field">
+        <div class="label-row"><label for="mchc">MCHC</label><span class="unit">g/dL</span></div>
+        <input type="number" id="mchc" step="0.1" min="0" max="50" placeholder="e.g. 32.5"/>
+      </div>
+      <div class="field">
+        <div class="label-row"><label for="mcv">MCV</label><span class="unit">fL</span></div>
+        <input type="number" id="mcv" step="0.1" min="0" max="150" placeholder="e.g. 85.0"/>
+      </div>
+      <button class="btn-predict" onclick="runPrediction()">
+        <span id="btn-text">Analyze CBC</span>
+        <div class="loader" id="loader"></div>
+      </button>
+    </div>
+    <div class="card">
+      <div class="card-title">Normal Reference Ranges</div>
+      <div class="ref-row"><span class="ref-name">Hemoglobin (F)</span><span class="ref-range">12.0 – 16.0 g/dL</span></div>
+      <div class="ref-row"><span class="ref-name">Hemoglobin (M)</span><span class="ref-range">13.5 – 17.5 g/dL</span></div>
+      <div class="ref-row"><span class="ref-name">MCH</span><span class="ref-range">27.0 – 33.0 pg</span></div>
+      <div class="ref-row"><span class="ref-name">MCHC</span><span class="ref-range">32.0 – 36.0 g/dL</span></div>
+      <div class="ref-row"><span class="ref-name">MCV</span><span class="ref-range">80.0 – 100.0 fL</span></div>
+      <div style="margin-top:24px">
+        <div class="card-title">About This Tool</div>
+        <p style="font-size:.82rem;color:var(--muted);line-height:1.7">Trained on the Kaggle Anemia dataset (1,421 samples) with 5-fold cross-validation. Binary classification: <strong style="color:var(--green)">No Anemia (0)</strong> vs <strong style="color:var(--red)">Anemia (1)</strong>.<br><br>⚠️ For educational & research use only.</p>
+      </div>
+    </div>
+    <div class="result-card" id="result-card">
+      <div class="result-empty" id="result-empty">
+        <div style="font-size:2.5rem;margin-bottom:12px;opacity:.4">🩸</div>
+        <p>Enter CBC values and click <strong>Analyze CBC</strong></p>
+      </div>
+      <div class="result-content" id="result-content" style="display:none"></div>
+    </div>
+  </div>
+  <footer>Built with Flask · Scikit-learn · SVM · Random Forest · Gradient Boosting &nbsp;|&nbsp; Kaggle Anemia Dataset</footer>
+</div>
+<script>
+  let selectedModel='svm',selectedGender=0;
+  document.querySelectorAll('.model-tab').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('.model-tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');selectedModel=t.dataset.model})});
+  document.querySelectorAll('.gender-btn').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('.gender-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');selectedGender=parseInt(b.dataset.val);document.getElementById('gender').value=selectedGender})});
+  async function runPrediction(){
+    const fields=['hemoglobin','mch','mchc','mcv'];
+    for(const f of fields){if(!document.getElementById(f).value){alert('Please enter a value for '+f.toUpperCase());return}}
+    document.getElementById('btn-text').style.display='none';
+    document.getElementById('loader').style.display='block';
+    const payload={gender:selectedGender,hemoglobin:parseFloat(document.getElementById('hemoglobin').value),mch:parseFloat(document.getElementById('mch').value),mchc:parseFloat(document.getElementById('mchc').value),mcv:parseFloat(document.getElementById('mcv').value),model:selectedModel};
+    try{
+      const res=await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const data=await res.json();
+      renderResult(data);
+    }catch(e){alert('Prediction failed. Make sure Flask server is running.')}
+    finally{document.getElementById('btn-text').style.display='inline';document.getElementById('loader').style.display='none'}
+  }
+  function renderResult(data){
+    document.getElementById('result-empty').style.display='none';
+    const c=document.getElementById('result-content');
+    c.style.display='block';
+    const p=data.probabilities;
+    c.innerHTML=`<div class="result-header"><div><div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">CLASSIFICATION RESULT</div><div class="result-label ${data.color}">${data.label}</div></div><div class="confidence-pill">Confidence: ${data.confidence}%</div></div><div class="prob-title">Probability Distribution</div><div class="prob-bars"><div class="prob-row"><span class="prob-name">No Anemia</span><div class="prob-track"><div class="prob-fill green" style="width:0%" data-w="${p['No Anemia']}%"></div></div><span class="prob-val">${p['No Anemia']}%</span></div><div class="prob-row"><span class="prob-name">Anemia</span><div class="prob-track"><div class="prob-fill red" style="width:0%" data-w="${p['Anemia']}%"></div></div><span class="prob-val">${p['Anemia']}%</span></div></div><div class="result-meta"><div class="meta-item">Model: <strong>${data.model_used}</strong></div><div class="meta-item">Hemoglobin: <strong>${document.getElementById('hemoglobin').value} g/dL</strong></div><div class="meta-item">Gender: <strong>${selectedGender===0?'Female':'Male'}</strong></div></div>`;
+    requestAnimationFrame(()=>{c.querySelectorAll('.prob-fill').forEach(b=>{setTimeout(()=>{b.style.width=b.dataset.w},100)})});
+  }
+</script>
+</body>
+</html>
